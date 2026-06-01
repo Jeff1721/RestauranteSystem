@@ -1,0 +1,20 @@
+# React
+frontend/node_modules/
+node_modules/
+
+# React build cache
+.cache/
+
+# .NET
+bin/
+obj/
+
+# Visual Studio
+.vs/
+
+# Logs
+*.log
+
+# SQL Server
+*.mdf
+*.ldf

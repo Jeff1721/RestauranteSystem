@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>RestauranteAPI.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Referencia a la capa de dominio -->
+    <ProjectReference Include="..\RestauranteAPI.Domain\RestauranteAPI.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- FluentValidation para validaciones de DTOs -->
+    <PackageReference Include="FluentValidation" Version="11.9.0" />
+  </ItemGroup>
+</Project>

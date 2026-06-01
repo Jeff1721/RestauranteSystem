@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>RestauranteAPI.API</RootNamespace>
+    <UserSecretsId>restaurante-api-secrets</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RestauranteAPI.Domain\RestauranteAPI.Domain.csproj" />
+    <ProjectReference Include="..\RestauranteAPI.Application\RestauranteAPI.Application.csproj" />
+    <ProjectReference Include="..\RestauranteAPI.Infrastructure\RestauranteAPI.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Swagger / OpenAPI -->
+    <PackageReference Include="Swashbuckle.AspNetCore"           Version="6.5.0" />
+    <!-- EF Core Design (para migraciones desde este proyecto) -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0" />
+    <!-- Logging con Serilog -->
+    <PackageReference Include="Serilog.AspNetCore"               Version="8.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console"            Version="5.0.1" />
+    <PackageReference Include="Serilog.Sinks.File"               Version="5.0.0" />
+  </ItemGroup>
+</Project>

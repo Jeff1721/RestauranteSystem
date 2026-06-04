@@ -48,7 +48,9 @@ builder.Services.AddCors(options =>
     options.AddPolicy("FrontendPolicy", policy =>
     {
         policy
-            .AllowAnyOrigin()
+            .WithOrigins(
+                "https://restaurante-system-pi.vercel.app"
+            )
             .AllowAnyHeader()
             .AllowAnyMethod();
     });

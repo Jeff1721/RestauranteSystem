@@ -55,6 +55,7 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
+Console.WriteLine(connectionString);
 
 builder.Services.AddHealthChecks();
 

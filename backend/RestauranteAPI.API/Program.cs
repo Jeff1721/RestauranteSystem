@@ -93,6 +93,6 @@ app.MapControllers();
 app.MapHealthChecks("/health");
 
 var port = Environment.GetEnvironmentVariable("PORT") ?? "5168";
+Console.WriteLine("CONN: " + connectionString);
 app.Run($"http://0.0.0.0:{port}");
 
-Console.WriteLine("CONN: " + connectionString);

@@ -55,7 +55,7 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
-Console.WriteLine(connectionString);
+
 
 builder.Services.AddHealthChecks();
 
@@ -85,3 +85,5 @@ app.MapHealthChecks("/health");
 
 var port = Environment.GetEnvironmentVariable("PORT") ?? "5168";
 app.Run($"http://0.0.0.0:{port}");
+
+Console.WriteLine("CONN: " + connectionString);

@@ -17,7 +17,10 @@
     <!-- Swagger / OpenAPI -->
     <PackageReference Include="Swashbuckle.AspNetCore"           Version="6.5.0" />
     <!-- EF Core Design (para migraciones desde este proyecto) -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
+    <PrivateAssets>all</PrivateAssets>
+    <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <!-- Logging con Serilog -->
     <PackageReference Include="Serilog.AspNetCore"               Version="8.0.0" />
     <PackageReference Include="Serilog.Sinks.Console"            Version="5.0.1" />

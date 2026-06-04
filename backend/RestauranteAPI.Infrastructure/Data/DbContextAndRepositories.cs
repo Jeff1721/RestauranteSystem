@@ -39,7 +39,7 @@ namespace RestauranteAPI.Infrastructure.Data
                 e.Property(x => x.Apellido).HasMaxLength(100).IsRequired();
                 e.Property(x => x.Telefono).HasMaxLength(20);
                 e.Property(x => x.Email).HasMaxLength(150);
-                e.HasIndex(x => x.Email).IsUnique().HasFilter("[Email] IS NOT NULL");
+                e.HasIndex(x => x.Email).IsUnique();                
                 e.Ignore(x => x.NombreCompleto);
             });
 

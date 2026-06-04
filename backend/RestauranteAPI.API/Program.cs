@@ -31,12 +31,21 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-var connectionString = builder.Configuration.GetConnectionString("PostgreSQL")
-    ?? throw new InvalidOperationException(
-        "Connection string 'PostgreSQL' no encontrada.");
+var connectionString = builder.Configuration.GetConnectionString("PostgreSQL");
+
+if (string.IsNullOrEmpty(connectionString))
+{
+    throw new Exception("Connection string NO cargada en producción");
+}
 
 builder.Services.AddDbContext<RestauranteDbContext>(options =>
-    options.UseNpgsql(connectionString));
+{
+    options.UseNpgsql(connectionString, npgsql =>
+    {
+        npgsql.EnableRetryOnFailure(5);
+    });
+});
+   
 
 builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<ICategoriaRepository, CategoriaRepository>();

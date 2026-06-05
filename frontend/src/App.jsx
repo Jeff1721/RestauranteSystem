@@ -1,5 +1,5 @@
 // src/App.jsx — Punto de entrada y configuración de rutas
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
@@ -10,6 +10,9 @@ import { SnackbarProvider } from 'notistack';
 import restauranteTheme from './theme/theme';
 import { store } from './store/store';
 import AppShell from './components/layout/AppShell';
+
+// Servicios
+import { categoriaService, platilloService } from './services/services';
 
 // Páginas
 import DashboardPage    from './pages/DashboardPage';
@@ -24,6 +27,15 @@ import InformesPage     from './pages/InformesPage';
 // <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
 
 export default function App() {
+
+  useEffect(() => {
+    // Precarga silenciosa al iniciar la app
+    // Cuando el usuario navegue a Nuevo Pedido o Menú, los datos ya están en caché
+    categoriaService.getAll().catch(() => {});
+    platilloService.obtenerDisponibles().catch(() => {});
+    platilloService.obtenerTodos().catch(() => {});
+  }, []);
+
   return (
     <Provider store={store}>
       <ThemeProvider theme={restauranteTheme}>
@@ -37,13 +49,13 @@ export default function App() {
             <Routes>
               {/* AppShell provee el sidebar/layout y renderiza cada página via <Outlet /> */}
               <Route path="/" element={<AppShell />}>
-                <Route index             element={<DashboardPage />} />
-                <Route path="clientes"   element={<ClientesPage />} />
-                <Route path="menu"       element={<MenuPage />} />
+                <Route index               element={<DashboardPage />} />
+                <Route path="clientes"     element={<ClientesPage />} />
+                <Route path="menu"         element={<MenuPage />} />
                 <Route path="nuevo-pedido" element={<NuevoPedidoPage />} />
-                <Route path="cocina"     element={<CocinaPage />} />
-                <Route path="caja"       element={<CajaPage />} />
-                <Route path="informes"   element={<InformesPage />} />
+                <Route path="cocina"       element={<CocinaPage />} />
+                <Route path="caja"         element={<CajaPage />} />
+                <Route path="informes"     element={<InformesPage />} />
               </Route>
             </Routes>
           </BrowserRouter>

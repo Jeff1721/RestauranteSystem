@@ -1,13 +1,12 @@
 // src/pages/CajaPage.jsx
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   Box, Grid, Card, CardContent, Typography, Button, Chip,
   Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Paper, Divider, IconButton, Dialog, DialogTitle,
   DialogContent, DialogActions, Alert, Skeleton, Tooltip,
-  TextField, InputAdornment, Switch, FormControlLabel, Checkbox,
-  List, ListItem, ListItemText, ListItemSecondaryAction,
-  ToggleButton, ToggleButtonGroup, Avatar, Badge,
+  TextField, InputAdornment, Switch, FormControlLabel,
+  Checkbox, Tabs, Tab, Badge,
 } from '@mui/material';
 import {
   Receipt as ReceiptIcon, Print as PrintIcon,
@@ -15,7 +14,7 @@ import {
   PointOfSale as CajaIcon, Close as CloseIcon,
   Refresh as RefreshIcon, Delete as DeleteIcon,
   CallSplit as SplitIcon, Person as PersonIcon,
-  Group as GroupIcon, Edit as EditIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 import { usePedidos, useNotificacion } from '../hooks/hooks';
 import { pedidoService } from '../services/services';
@@ -28,172 +27,216 @@ const fmtFecha = (d) => new Date(d).toLocaleString('es-CR', {
   year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
 });
 
-// ─────────────────────────────────────────────────────────────────
-// Componente de ticket estrecho (térmica 80mm) para imprimir
-// ─────────────────────────────────────────────────────────────────
-const Ticket = React.forwardRef(({ factura, items, aplicarIva, nombreFactura }, ref) => {
-  const subtotal = items.reduce((s, i) => s + (i.subtotal || 0), 0);
-  const pct      = factura?.porcentajeImpuesto || 13;
-  const impuesto = aplicarIva ? Math.round(subtotal * pct / 100) : 0;
-  const total    = subtotal + impuesto;
-
+// ─────────────────────────────────────────────────────────────
+// Comprobante estrecho estilo POS (80mm)
+// ─────────────────────────────────────────────────────────────
+const Comprobante = React.forwardRef(({ datos }, ref) => {
+  const { items, subtotal, impuesto, total, aplicarIva, porcentajeImpuesto,
+          pedidoId, fecha, nombreCliente, numeroMesa, atendidoPor,
+          nombreFactura } = datos;
   return (
     <Box ref={ref} sx={{
-      width: '80mm',
-      fontFamily: '"Courier New", Courier, monospace',
-      fontSize: '11px',
-      color: '#000',
-      p: '4mm',
-      bgcolor: '#fff',
-      lineHeight: 1.4,
+      width: '72mm', fontFamily: '"Courier New", monospace',
+      fontSize: '11px', p: '4mm', color: '#000', bgcolor: '#fff',
+      '@media print': { width: '72mm', margin: 0, padding: '4mm' },
     }}>
       {/* Encabezado */}
-      <Box sx={{ textAlign: 'center', mb: 1 }}>
-        <Typography sx={{ fontSize: 15, fontWeight: 800, fontFamily: 'inherit' }}>
-          🍽️ RESTAURANTE
+      <Box sx={{ textAlign: 'center', mb: '3mm' }}>
+        <Typography sx={{ fontSize: '14px', fontWeight: 900, letterSpacing: 1 }}>
+          🍽 RESTAURANTE
         </Typography>
-        <Typography sx={{ fontSize: 10, fontFamily: 'inherit' }}>Sistema de Pedidos</Typography>
-        <Box sx={{ borderTop: '1px dashed #000', borderBottom: '1px dashed #000', my: 0.5, py: 0.25 }}>
-          <Typography sx={{ fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>
-            {nombreFactura ? nombreFactura.toUpperCase() : `COMPROBANTE #${factura?.pedidoId}`}
-          </Typography>
-          <Typography sx={{ fontSize: 9, fontFamily: 'inherit' }}>
-            {factura && fmtFecha(factura.fecha)}
-          </Typography>
-        </Box>
+        <Typography sx={{ fontSize: '10px' }}>Sistema de Pedidos</Typography>
+        <Box sx={{ borderTop: '1px dashed #000', my: '2mm' }} />
+        <Typography sx={{ fontSize: '12px', fontWeight: 700 }}>
+          COMPROBANTE #{pedidoId}
+        </Typography>
+        <Typography sx={{ fontSize: '10px' }}>{fecha && fmtFecha(fecha)}</Typography>
       </Box>
 
-      {/* Info */}
-      {(factura?.nombreCliente || factura?.numeroMesa || factura?.atendidoPor) && (
-        <Box sx={{ mb: 0.5 }}>
-          {factura?.nombreCliente && (
-            <Typography sx={{ fontSize: 10, fontFamily: 'inherit' }}>Cliente: {factura.nombreCliente}</Typography>
-          )}
-          {factura?.numeroMesa && (
-            <Typography sx={{ fontSize: 10, fontFamily: 'inherit' }}>Mesa: {factura.numeroMesa}</Typography>
-          )}
-          {factura?.atendidoPor && (
-            <Typography sx={{ fontSize: 10, fontFamily: 'inherit' }}>Mesero: {factura.atendidoPor}</Typography>
-          )}
-          <Box sx={{ borderTop: '1px dashed #000', mt: 0.5 }} />
-        </Box>
-      )}
+      {/* Datos */}
+      <Box sx={{ mb: '2mm' }}>
+        {nombreFactura  && <Typography><b>Facturar a:</b> {nombreFactura}</Typography>}
+        {nombreCliente  && <Typography><b>Cliente:</b> {nombreCliente}</Typography>}
+        {numeroMesa     && <Typography><b>Mesa:</b> {numeroMesa}</Typography>}
+        {atendidoPor    && <Typography><b>Mesero:</b> {atendidoPor}</Typography>}
+      </Box>
+
+      <Box sx={{ borderTop: '1px dashed #000', mb: '2mm' }} />
 
       {/* Items */}
-      <Box sx={{ mb: 0.5 }}>
-        {items.map((item, i) => (
-          <Box key={i} sx={{ mb: 0.25 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography sx={{ fontSize: 10, fontFamily: 'inherit', flex: 1, pr: 1 }}>
-                {item.cantidad}x {item.nombrePlatillo || item.nombre}
-              </Typography>
-              <Typography sx={{ fontSize: 10, fontFamily: 'inherit', flexShrink: 0 }}>
-                {fmt(item.subtotal)}
-              </Typography>
-            </Box>
-            {item.personalizaciones?.map((p, pi) => (
-              <Typography key={pi} sx={{ fontSize: 9, fontFamily: 'inherit', pl: 1.5, color: '#555' }}>
-                → {typeof p === 'string' ? p : p.descripcion}
-              </Typography>
-            ))}
+      {items.map((item, i) => (
+        <Box key={i} sx={{ mb: '1mm' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography sx={{ flex: 1, fontWeight: 700, fontSize: '11px' }}>
+              {item.nombre}
+            </Typography>
+            <Typography sx={{ fontSize: '11px' }}>{fmt(item.subtotal)}</Typography>
           </Box>
-        ))}
-        <Box sx={{ borderTop: '1px dashed #000', mt: 0.5 }} />
-      </Box>
+          <Typography sx={{ fontSize: '10px', color: '#444' }}>
+            {item.cantidad} x {fmt(item.precioUnitario)}
+          </Typography>
+          {item.personalizaciones?.map((p, pi) => (
+            <Typography key={pi} sx={{ fontSize: '10px', color: '#666', pl: '3mm' }}>↳ {p}</Typography>
+          ))}
+        </Box>
+      ))}
+
+      <Box sx={{ borderTop: '1px dashed #000', my: '2mm' }} />
 
       {/* Totales */}
-      <Box sx={{ mb: 0.5 }}>
+      <Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography sx={{ fontSize: 10, fontFamily: 'inherit' }}>Subtotal</Typography>
-          <Typography sx={{ fontSize: 10, fontFamily: 'inherit' }}>{fmt(subtotal)}</Typography>
+          <Typography>Subtotal:</Typography>
+          <Typography>{fmt(subtotal)}</Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography sx={{ fontSize: 10, fontFamily: 'inherit' }}>
-            IVA {aplicarIva ? `(${pct}%)` : '(Exento)'}
-          </Typography>
-          <Typography sx={{ fontSize: 10, fontFamily: 'inherit' }}>{fmt(impuesto)}</Typography>
+          <Typography>IVA {aplicarIva ? `(${porcentajeImpuesto}%):` : '(Exento):'}</Typography>
+          <Typography>{aplicarIva ? fmt(impuesto) : fmt(0)}</Typography>
         </Box>
-        <Box sx={{ borderTop: '1px solid #000', mt: 0.25, pt: 0.25, display: 'flex', justifyContent: 'space-between' }}>
-          <Typography sx={{ fontSize: 13, fontWeight: 800, fontFamily: 'inherit' }}>TOTAL</Typography>
-          <Typography sx={{ fontSize: 13, fontWeight: 800, fontFamily: 'inherit' }}>{fmt(total)}</Typography>
+        <Box sx={{ borderTop: '1px solid #000', mt: '1mm', pt: '1mm', display: 'flex', justifyContent: 'space-between' }}>
+          <Typography sx={{ fontWeight: 900, fontSize: '13px' }}>TOTAL:</Typography>
+          <Typography sx={{ fontWeight: 900, fontSize: '13px' }}>{fmt(total)}</Typography>
         </Box>
       </Box>
 
-      {/* Pie */}
-      <Box sx={{ borderTop: '1px dashed #000', textAlign: 'center', pt: 0.5 }}>
-        <Typography sx={{ fontSize: 9, fontFamily: 'inherit' }}>¡Gracias por su visita!</Typography>
-        <Typography sx={{ fontSize: 9, fontFamily: 'inherit' }}>Vuelva pronto 🙏</Typography>
+      {datos.metodoPago && (
+        <Box sx={{ mt: '2mm' }}>
+          <Typography><b>Método de pago:</b> {datos.metodoPago === 'efectivo' ? '💵 Efectivo' : datos.metodoPago === 'tarjeta' ? '💳 Tarjeta' : '📱 SINPE'}</Typography>
+          {datos.metodoPago === 'efectivo' && datos.montoRecibido > 0 && (
+            <>
+              <Typography><b>Recibido:</b> {`₡${Number(datos.montoRecibido).toLocaleString('es-CR',{minimumFractionDigits:0})}`}</Typography>
+              <Typography sx={{ fontWeight: 900 }}><b>Vuelto:</b> {`₡${Number(datos.montoRecibido - datos.total).toLocaleString('es-CR',{minimumFractionDigits:0})}`}</Typography>
+            </>
+          )}
+        </Box>
+      )}
+      <Box sx={{ borderTop: '1px dashed #000', mt: '3mm', textAlign: 'center' }}>
+        <Typography sx={{ fontSize: '10px', mt: '2mm' }}>¡Gracias por su visita! 🙏</Typography>
+        <Typography sx={{ fontSize: '9px', color: '#666' }}>
+          {new Date().toLocaleString('es-CR')}
+        </Typography>
       </Box>
     </Box>
   );
 });
 
-// ─────────────────────────────────────────────────────────────────
-// Modal de pago — soporta pago total, parcial o dividido
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Modal de Factura con pago total / dividido
+// ─────────────────────────────────────────────────────────────
 function FacturaModal({ pedidoId, open, onClose, onPagar }) {
-  const [factura,       setFactura]       = useState(null);
-  const [loading,       setLoading]       = useState(false);
-  const [pagando,       setPagando]       = useState(false);
-  const [aplicarIva,    setAplicarIva]    = useState(true);
-  const [modoPago,      setModoPago]      = useState('total');   // 'total' | 'parcial' | 'dividido'
-  const [seleccionados, setSeleccionados] = useState([]);        // índices de items seleccionados
-  const [numPersonas,   setNumPersonas]   = useState(2);
-  const [personaActual, setPersonaActual] = useState(1);
-  const [pagosDiv,      setPagosDiv]      = useState({});        // { personaIdx: [itemIndices] }
-  const [nombreFactura, setNombreFactura] = useState('');
-  const [editNombre,    setEditNombre]    = useState(false);
+  const [factura,     setFactura]     = useState(null);
+  const [loading,     setLoading]     = useState(false);
+  const [tab,         setTab]         = useState(0); // 0=Completo 1=Dividido
+  const [aplicarIva,  setAplicarIva]  = useState(true);
+  const [nombreFact,  setNombreFact]  = useState('');
+  const [pagando,     setPagando]     = useState(false);
+  const [metodoPago,  setMetodoPago]  = useState('efectivo'); // efectivo | tarjeta | sinpe
+  const [montoRecibido, setMontoRecibido] = useState('');
+
+  // Pago dividido: lista de grupos
+  const [grupos, setGrupos] = useState([
+    { nombre: 'Persona 1', items: [], nombreFactura: '' },
+  ]);
+
+  const printRef   = useRef();
+  const printData  = useRef({});
+
   const { exito, error: notifError } = useNotificacion();
-  const printRef = useRef();
-  const handlePrint = useReactToPrint({ content: () => printRef.current });
+
+  const handlePrint = useReactToPrint({
+    content: () => printRef.current,
+    pageStyle: `
+      @page { size: 80mm auto; margin: 0; }
+      @media print { body { margin: 0; } }
+    `,
+  });
 
   React.useEffect(() => {
     if (!open || !pedidoId) return;
     setLoading(true);
+    setTab(0);
+    setNombreFact('');
     setAplicarIva(true);
-    setModoPago('total');
-    setSeleccionados([]);
-    setPagosDiv({});
-    setNombreFactura('');
-    setEditNombre(false);
+    setMetodoPago('efectivo');
+    setMontoRecibido('');
+    setGrupos([{ nombre: 'Persona 1', items: [], nombreFactura: '' }]);
     pedidoService.getFactura(pedidoId)
-      .then((data) => {
+      .then(data => {
         setFactura(data);
-        setSeleccionados(data.items?.map((_, i) => i) || []);
+        // Por defecto todos los items al primer grupo
+        setGrupos([{
+          nombre: 'Persona 1',
+          items: (data.items || []).map((_, i) => i),
+          nombreFactura: '',
+        }]);
       })
       .catch(err => notifError(err.message))
       .finally(() => setLoading(false));
   }, [open, pedidoId]);
 
-  // Items a facturar según modo
-  const itemsAFacturar = React.useMemo(() => {
-    if (!factura?.items) return [];
-    if (modoPago === 'total') return factura.items;
-    if (modoPago === 'parcial') return seleccionados.map(i => factura.items[i]);
-    if (modoPago === 'dividido') {
-      const indices = pagosDiv[personaActual] || [];
-      return indices.map(i => factura.items[i]);
-    }
-    return factura.items;
-  }, [factura, modoPago, seleccionados, pagosDiv, personaActual]);
+  // ── Totales pago completo ────────────────────────────────────
+  const subtotalTotal = factura?.subtotal || 0;
+  const impuestoTotal = aplicarIva ? subtotalTotal * ((factura?.porcentajeImpuesto || 13) / 100) : 0;
+  const totalCompleto = subtotalTotal + impuestoTotal;
 
-  const subtotal = itemsAFacturar.reduce((s, i) => s + (i?.subtotal || 0), 0);
-  const pct      = factura?.porcentajeImpuesto || 13;
-  const impuesto = aplicarIva ? Math.round(subtotal * pct / 100) : 0;
-  const total    = subtotal + impuesto;
+  // ── Helpers dividido ─────────────────────────────────────────
+  const getSubtotalGrupo = (grupo) =>
+    (factura?.items || [])
+      .filter((_, i) => grupo.items.includes(i))
+      .reduce((s, item) => s + item.subtotal, 0);
 
-  const toggleItem = (idx) => {
-    setSeleccionados(prev =>
-      prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
-    );
+  const toggleItemGrupo = (grupoIdx, itemIdx) => {
+    setGrupos(prev => prev.map((g, gi) => {
+      if (gi !== grupoIdx) return g;
+      const tiene = g.items.includes(itemIdx);
+      return { ...g, items: tiene ? g.items.filter(i => i !== itemIdx) : [...g.items, itemIdx] };
+    }));
   };
 
-  const toggleItemDiv = (idx) => {
-    setPagosDiv(prev => {
-      const curr = prev[personaActual] || [];
-      const next = curr.includes(idx) ? curr.filter(i => i !== idx) : [...curr, idx];
-      return { ...prev, [personaActual]: next };
-    });
+  const agregarGrupo = () => {
+    setGrupos(prev => [...prev, {
+      nombre: `Persona ${prev.length + 1}`,
+      items: [],
+      nombreFactura: '',
+    }]);
+  };
+
+  const eliminarGrupo = (idx) => {
+    if (grupos.length === 1) return;
+    setGrupos(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // ── Imprimir grupo específico ────────────────────────────────
+  const imprimirGrupo = (grupo) => {
+    if (!factura) return;
+    const items = (factura.items || []).filter((_, i) => grupo.items.includes(i));
+    const sub   = items.reduce((s, i) => s + i.subtotal, 0);
+    const imp   = aplicarIva ? sub * ((factura.porcentajeImpuesto || 13) / 100) : 0;
+    printData.current = {
+      items, subtotal: sub, impuesto: imp, total: sub + imp,
+      aplicarIva, porcentajeImpuesto: factura.porcentajeImpuesto,
+      pedidoId, fecha: factura.fecha,
+      nombreCliente: factura.nombreCliente,
+      numeroMesa: factura.numeroMesa,
+      atendidoPor: factura.atendidoPor,
+      nombreFactura: grupo.nombreFactura,
+    };
+    handlePrint();
+  };
+
+  const imprimirTotal = () => {
+    if (!factura) return;
+    printData.current = {
+      items: factura.items || [],
+      subtotal: subtotalTotal, impuesto: impuestoTotal, total: totalCompleto,
+      aplicarIva, porcentajeImpuesto: factura.porcentajeImpuesto,
+      pedidoId, fecha: factura.fecha,
+      nombreCliente: factura.nombreCliente,
+      numeroMesa: factura.numeroMesa,
+      atendidoPor: factura.atendidoPor,
+      nombreFactura: nombreFact,
+    };
+    handlePrint();
   };
 
   const handlePagar = async () => {
@@ -209,243 +252,317 @@ function FacturaModal({ pedidoId, open, onClose, onPagar }) {
     }
   };
 
-  const COLORES_PERSONA = ['#1565C0','#2E7D32','#E65100','#6A1B9A','#AD1457','#00695C'];
-
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-          <ReceiptIcon color="primary" />
-          {editNombre ? (
-            <TextField
-              size="small" autoFocus
-              value={nombreFactura}
-              placeholder={`Comprobante #${pedidoId}`}
-              onChange={e => setNombreFactura(e.target.value)}
-              onBlur={() => setEditNombre(false)}
-              onKeyDown={e => e.key === 'Enter' && setEditNombre(false)}
-              sx={{ maxWidth: 220 }}
-            />
-          ) : (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
-              onClick={() => setEditNombre(true)}>
-              <Typography variant="h6" fontWeight={700}>
-                {nombreFactura || `Comprobante #${pedidoId}`}
-              </Typography>
-              <Tooltip title="Cambiar nombre">
-                <EditIcon fontSize="small" sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }} />
-              </Tooltip>
-            </Box>
-          )}
-        </Box>
-        <IconButton onClick={onClose}><CloseIcon /></IconButton>
-      </DialogTitle>
+    <>
+      <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ReceiptIcon color="primary" />
+            <Typography variant="h6" fontWeight={700}>Factura #{pedidoId}</Typography>
+          </Box>
+          <IconButton onClick={onClose}><CloseIcon /></IconButton>
+        </DialogTitle>
 
-      <DialogContent sx={{ pt: 1 }}>
-        {loading ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} sx={{ mb: 1 }} height={40} />)
-        ) : factura ? (
-          <>
-            {/* ── Modo de pago ── */}
-            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-              <Typography fontWeight={600} color="text.secondary" sx={{ fontSize: 13 }}>Modo de pago:</Typography>
-              <ToggleButtonGroup value={modoPago} exclusive size="small"
-                onChange={(_, v) => { if (v) { setModoPago(v); setSeleccionados(factura.items?.map((_,i)=>i)||[]); }}}>
-                <ToggleButton value="total">
-                  <PagarIcon fontSize="small" sx={{ mr: 0.5 }} /> Todo junto
-                </ToggleButton>
-                <ToggleButton value="parcial">
-                  <ReceiptIcon fontSize="small" sx={{ mr: 0.5 }} /> Ítems específicos
-                </ToggleButton>
-                <ToggleButton value="dividido">
-                  <SplitIcon fontSize="small" sx={{ mr: 0.5 }} /> Dividir entre personas
-                </ToggleButton>
-              </ToggleButtonGroup>
-            </Box>
+        <DialogContent sx={{ pt: 0 }}>
+          {loading ? (
+            Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} sx={{ mb: 1 }} height={40} />)
+          ) : factura ? (
+            <>
+              {/* Tabs */}
+              <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+                <Tab icon={<ReceiptIcon fontSize="small" />} iconPosition="start" label="Pago completo" />
+                <Tab icon={<SplitIcon fontSize="small" />} iconPosition="start" label="Pago dividido" />
+              </Tabs>
 
-            {/* ── Control de personas (modo dividido) ── */}
-            {modoPago === 'dividido' && (
-              <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
-                  <Typography fontWeight={600} sx={{ fontSize: 13 }}>Número de personas:</Typography>
-                  <TextField
-                    type="number" size="small" sx={{ width: 70 }}
-                    inputProps={{ min: 2, max: 10 }}
-                    value={numPersonas}
-                    onChange={e => setNumPersonas(Math.max(2, Math.min(10, Number(e.target.value))))}
-                  />
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  {Array.from({ length: numPersonas }, (_, i) => i + 1).map(n => (
-                    <Button key={n} variant={personaActual === n ? 'contained' : 'outlined'}
-                      size="small" onClick={() => setPersonaActual(n)}
-                      startIcon={<PersonIcon />}
-                      sx={{
-                        borderColor: COLORES_PERSONA[(n-1) % COLORES_PERSONA.length],
-                        color: personaActual === n ? '#fff' : COLORES_PERSONA[(n-1) % COLORES_PERSONA.length],
-                        bgcolor: personaActual === n ? COLORES_PERSONA[(n-1) % COLORES_PERSONA.length] : 'transparent',
-                        '&:hover': { bgcolor: COLORES_PERSONA[(n-1) % COLORES_PERSONA.length], color: '#fff' },
-                      }}>
-                      Persona {n}
-                      {(pagosDiv[n] || []).length > 0 && (
-                        <Chip label={(pagosDiv[n]||[]).length} size="small"
-                          sx={{ ml: 0.5, height: 16, fontSize: 10, bgcolor: 'rgba(255,255,255,0.3)' }} />
-                      )}
-                    </Button>
-                  ))}
-                </Box>
-                {personaActual && (
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    Selecciona los ítems de la Persona {personaActual}:
-                  </Typography>
-                )}
-              </Box>
-            )}
+              {/* ── TAB 0: Pago completo ── */}
+              {tab === 0 && (
+                <Box>
+                  {/* Toggle IVA + nombre factura */}
+                  <Grid container spacing={2} sx={{ mb: 2 }}>
+                    <Grid item xs={12} sm={7}>
+                      <TextField
+                        fullWidth size="small"
+                        label="Nombre en la factura (opcional)"
+                        placeholder="Ej: Juan Pérez / Empresa ABC"
+                        value={nombreFact}
+                        onChange={e => setNombreFact(e.target.value)}
+                        InputProps={{ startAdornment: <InputAdornment position="start"><PersonIcon fontSize="small" /></InputAdornment> }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={5}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
+                        <FormControlLabel
+                          control={<Switch checked={aplicarIva} onChange={e => setAplicarIva(e.target.checked)} color="primary" />}
+                          label={`IVA ${factura.porcentajeImpuesto}%`}
+                        />
+                      </Box>
+                    </Grid>
+                  </Grid>
 
-            {/* ── Toggle IVA ── */}
-            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              p: 1.5, bgcolor: 'grey.50', borderRadius: 2 }}>
-              <Box>
-                <Typography fontWeight={600} sx={{ fontSize: 13 }}>
-                  Aplicar IVA ({factura.porcentajeImpuesto}%)
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {aplicarIva ? `+${fmt(impuesto)} de impuesto` : 'Factura exenta de IVA'}
-                </Typography>
-              </Box>
-              <Switch checked={aplicarIva} onChange={e => setAplicarIva(e.target.checked)} color="primary" />
-            </Box>
+                  {/* Resumen */}
+                  <Grid container spacing={1.5} sx={{ mb: 2 }}>
+                    {[
+                      { label: 'Subtotal',    value: fmt(subtotalTotal), color: 'default' },
+                      { label: 'IVA',         value: aplicarIva ? fmt(impuestoTotal) : 'Exento', color: 'default' },
+                      { label: 'TOTAL',       value: fmt(totalCompleto), color: 'primary', big: true },
+                    ].map(k => (
+                      <Grid item xs={4} key={k.label}>
+                        <Card sx={{ textAlign: 'center', p: 1.5, bgcolor: k.big ? 'primary.main' : 'grey.50' }}
+                          variant={k.big ? 'elevation' : 'outlined'}>
+                          <Typography variant="caption" sx={{ color: k.big ? '#fff' : 'text.secondary' }}>{k.label}</Typography>
+                          <Typography fontWeight={800} sx={{ color: k.big ? '#fff' : 'text.primary', fontSize: k.big ? '1.1rem' : '1rem' }}>
+                            {k.value}
+                          </Typography>
+                        </Card>
+                      </Grid>
+                    ))}
+                  </Grid>
 
-            {/* ── Lista de ítems ── */}
-            <TableContainer component={Paper} elevation={0}
-              sx={{ border: '1px solid', borderColor: 'divider', mb: 2, maxHeight: 300, overflow: 'auto' }}>
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: 'grey.50' }}>
-                    {modoPago !== 'total' && <TableCell padding="checkbox" />}
-                    <TableCell><strong>Platillo</strong></TableCell>
-                    <TableCell align="center"><strong>Cant.</strong></TableCell>
-                    <TableCell align="right"><strong>Subtotal</strong></TableCell>
-                    {modoPago === 'dividido' && <TableCell align="center"><strong>Asignado a</strong></TableCell>}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {factura.items?.map((item, i) => {
-                    const selParcial  = modoPago === 'parcial'  && seleccionados.includes(i);
-                    const selDividido = modoPago === 'dividido' && (pagosDiv[personaActual]||[]).includes(i);
-                    const asignadoA   = modoPago === 'dividido'
-                      ? Object.entries(pagosDiv).find(([,idxs]) => idxs.includes(i))?.[0]
-                      : null;
+                  {/* Tabla */}
+                  <TableContainer component={Paper} elevation={0} variant="outlined" sx={{ mb: 1 }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: 'grey.50' }}>
+                          <TableCell><b>Platillo</b></TableCell>
+                          <TableCell align="center"><b>Cant.</b></TableCell>
+                          <TableCell align="right"><b>Subtotal</b></TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {factura.items?.map((item, i) => (
+                          <TableRow key={i} hover>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight={600}>{item.nombre}</Typography>
+                              {item.personalizaciones?.map((p, pi) => (
+                                <Typography key={pi} variant="caption" color="text.secondary" display="block">↳ {p}</Typography>
+                              ))}
+                            </TableCell>
+                            <TableCell align="center">{item.cantidad}</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt(item.subtotal)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
 
-                    return (
-                      <TableRow key={i} hover
-                        selected={modoPago === 'total' || selParcial || selDividido}
-                        sx={{ opacity: modoPago === 'parcial' && !selParcial ? 0.45 : 1,
-                              cursor: modoPago !== 'total' ? 'pointer' : 'default' }}
-                        onClick={() => {
-                          if (modoPago === 'parcial') toggleItem(i);
-                          if (modoPago === 'dividido') toggleItemDiv(i);
-                        }}
-                      >
-                        {modoPago !== 'total' && (
-                          <TableCell padding="checkbox">
-                            <Checkbox
-                              checked={modoPago === 'parcial' ? seleccionados.includes(i) : (pagosDiv[personaActual]||[]).includes(i)}
-                              sx={modoPago === 'dividido' ? {
-                                color: COLORES_PERSONA[(personaActual-1) % COLORES_PERSONA.length],
-                                '&.Mui-checked': { color: COLORES_PERSONA[(personaActual-1) % COLORES_PERSONA.length] }
-                              } : {}}
-                              size="small"
-                            />
-                          </TableCell>
-                        )}
-                        <TableCell>
-                          <Typography variant="body2" fontWeight={600}>{item.nombre}</Typography>
-                          {item.personalizaciones?.map((p, pi) => (
-                            <Typography key={pi} variant="caption" color="text.secondary" display="block">
-                              ↳ {p}
+                  {/* ── Método de pago ── */}
+                  <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                    <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
+                      💳 Método de pago
+                    </Typography>
+                    <Grid container spacing={1} sx={{ mb: metodoPago === 'efectivo' ? 2 : 0 }}>
+                      {[
+                        { key: 'efectivo', label: '💵 Efectivo' },
+                        { key: 'tarjeta',  label: '💳 Tarjeta' },
+                        { key: 'sinpe',    label: '📱 SINPE' },
+                      ].map(m => (
+                        <Grid item xs={4} key={m.key}>
+                          <Card
+                            onClick={() => { setMetodoPago(m.key); setMontoRecibido(''); }}
+                            sx={{
+                              p: 1.5, textAlign: 'center', cursor: 'pointer', borderRadius: 2,
+                              border: '2px solid',
+                              borderColor: metodoPago === m.key ? 'primary.main' : 'divider',
+                              bgcolor: metodoPago === m.key ? 'primary.50' : '#fff',
+                              transition: 'all .2s',
+                            }}
+                          >
+                            <Typography variant="body2" fontWeight={metodoPago === m.key ? 800 : 400}>
+                              {m.label}
                             </Typography>
-                          ))}
-                        </TableCell>
-                        <TableCell align="center">{item.cantidad}</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt(item.subtotal)}</TableCell>
-                        {modoPago === 'dividido' && (
-                          <TableCell align="center">
-                            {asignadoA ? (
-                              <Avatar sx={{
-                                width: 24, height: 24, fontSize: 11, mx: 'auto',
-                                bgcolor: COLORES_PERSONA[(Number(asignadoA)-1) % COLORES_PERSONA.length]
-                              }}>
-                                {asignadoA}
-                              </Avatar>
+                          </Card>
+                        </Grid>
+                      ))}
+                    </Grid>
+
+                    {/* Vuelto — solo en efectivo */}
+                    {metodoPago === 'efectivo' && (
+                      <Box>
+                        <TextField
+                          fullWidth size="small"
+                          label="Monto recibido del cliente"
+                          type="number"
+                          placeholder={String(totalCompleto)}
+                          value={montoRecibido}
+                          onChange={e => setMontoRecibido(e.target.value)}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">₡</InputAdornment>,
+                          }}
+                          sx={{ mb: 1.5 }}
+                        />
+                        {montoRecibido !== '' && (
+                          <Box sx={{
+                            p: 1.5, borderRadius: 2,
+                            bgcolor: Number(montoRecibido) >= totalCompleto ? 'success.50' : 'error.50',
+                            border: '1px solid',
+                            borderColor: Number(montoRecibido) >= totalCompleto ? 'success.main' : 'error.main',
+                          }}>
+                            {Number(montoRecibido) >= totalCompleto ? (
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Box>
+                                  <Typography variant="body2" color="success.dark">✅ Pago suficiente</Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    Recibido: {fmt(Number(montoRecibido))} · Total: {fmt(totalCompleto)}
+                                  </Typography>
+                                </Box>
+                                <Box sx={{ textAlign: 'right' }}>
+                                  <Typography variant="caption" color="text.secondary">VUELTO</Typography>
+                                  <Typography variant="h5" fontWeight={900} color="success.main">
+                                    {fmt(Number(montoRecibido) - totalCompleto)}
+                                  </Typography>
+                                </Box>
+                              </Box>
                             ) : (
-                              <Typography variant="caption" color="text.disabled">—</Typography>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="body2" color="error.dark">
+                                  ❌ Monto insuficiente
+                                </Typography>
+                                <Typography variant="h6" fontWeight={800} color="error.main">
+                                  Faltan {fmt(totalCompleto - Number(montoRecibido))}
+                                </Typography>
+                              </Box>
                             )}
-                          </TableCell>
+                          </Box>
                         )}
-                      </TableRow>
+                      </Box>
+                    )}
+                  </Box>
+                </Box>
+              )}
+
+              {/* ── TAB 1: Pago dividido ── */}
+              {tab === 1 && (
+                <Box>
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Asigna cada platillo a la persona que lo paga. Puedes imprimir un comprobante por separado.
+                  </Alert>
+
+                  {/* Toggle IVA global */}
+                  <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                    <FormControlLabel
+                      control={<Switch checked={aplicarIva} onChange={e => setAplicarIva(e.target.checked)} color="primary" />}
+                      label={`IVA ${factura.porcentajeImpuesto}%`}
+                    />
+                  </Box>
+
+                  {grupos.map((grupo, gi) => {
+                    const sub = getSubtotalGrupo(grupo);
+                    const imp = aplicarIva ? sub * ((factura.porcentajeImpuesto || 13) / 100) : 0;
+                    return (
+                      <Card key={gi} variant="outlined" sx={{ mb: 2, borderRadius: 2 }}>
+                        <CardContent sx={{ pb: '12px !important' }}>
+                          {/* Cabecera del grupo */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                            <TextField
+                              size="small" sx={{ flex: 1 }}
+                              label="Nombre de la persona"
+                              value={grupo.nombre}
+                              onChange={e => setGrupos(prev => prev.map((g, i) => i === gi ? { ...g, nombre: e.target.value } : g))}
+                              InputProps={{ startAdornment: <InputAdornment position="start"><PersonIcon fontSize="small" /></InputAdornment> }}
+                            />
+                            <TextField
+                              size="small" sx={{ flex: 1 }}
+                              label="Nombre en factura"
+                              value={grupo.nombreFactura}
+                              onChange={e => setGrupos(prev => prev.map((g, i) => i === gi ? { ...g, nombreFactura: e.target.value } : g))}
+                            />
+                            {grupos.length > 1 && (
+                              <IconButton size="small" color="error" onClick={() => eliminarGrupo(gi)}>
+                                <CloseIcon fontSize="small" />
+                              </IconButton>
+                            )}
+                          </Box>
+
+                          {/* Items asignables */}
+                          <TableContainer>
+                            <Table size="small">
+                              <TableBody>
+                                {factura.items?.map((item, ii) => (
+                                  <TableRow key={ii} hover
+                                    onClick={() => toggleItemGrupo(gi, ii)}
+                                    sx={{ cursor: 'pointer', bgcolor: grupo.items.includes(ii) ? 'primary.50' : 'inherit' }}>
+                                    <TableCell padding="checkbox">
+                                      <Checkbox
+                                        size="small"
+                                        checked={grupo.items.includes(ii)}
+                                        onChange={() => toggleItemGrupo(gi, ii)}
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Typography variant="body2" fontWeight={600}>{item.nombre}</Typography>
+                                      {item.personalizaciones?.map((p, pi) => (
+                                        <Typography key={pi} variant="caption" color="text.secondary" display="block">↳ {p}</Typography>
+                                      ))}
+                                    </TableCell>
+                                    <TableCell align="center">{item.cantidad}</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt(item.subtotal)}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+
+                          {/* Total del grupo + imprimir */}
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1.5, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+                            <Box>
+                              <Typography variant="body2" color="text.secondary">
+                                Subtotal: {fmt(sub)}
+                                {aplicarIva && <> · IVA: {fmt(imp)}</>}
+                              </Typography>
+                              <Typography fontWeight={800} color="primary.main">
+                                Total: {fmt(sub + imp)}
+                              </Typography>
+                            </Box>
+                            <Button
+                              size="small" variant="outlined" startIcon={<PrintIcon />}
+                              disabled={grupo.items.length === 0}
+                              onClick={() => imprimirGrupo(grupo)}
+                            >
+                              Imprimir
+                            </Button>
+                          </Box>
+                        </CardContent>
+                      </Card>
                     );
                   })}
-                </TableBody>
-              </Table>
-            </TableContainer>
 
-            {/* ── Totales ── */}
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Box sx={{ minWidth: 220, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                  <Typography variant="body2">Subtotal</Typography>
-                  <Typography variant="body2" fontWeight={700}>{fmt(subtotal)}</Typography>
+                  <Button startIcon={<AddIcon />} variant="dashed" onClick={agregarGrupo} fullWidth
+                    sx={{ border: '1px dashed', borderColor: 'primary.main', color: 'primary.main', py: 1 }}>
+                    Agregar persona
+                  </Button>
                 </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                  <Typography variant="body2" color={aplicarIva ? 'text.primary' : 'text.disabled'}>
-                    IVA {aplicarIva ? `(${pct}%)` : '(Exento)'}
-                  </Typography>
-                  <Typography variant="body2" color={aplicarIva ? 'text.primary' : 'text.disabled'}>
-                    {fmt(impuesto)}
-                  </Typography>
-                </Box>
-                <Divider sx={{ my: 0.5 }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography fontWeight={800} color="primary">TOTAL A COBRAR</Typography>
-                  <Typography fontWeight={800} color="primary" fontSize="1.1rem">{fmt(total)}</Typography>
-                </Box>
-              </Box>
-            </Box>
+              )}
+            </>
+          ) : null}
+        </DialogContent>
 
-            {/* Ticket oculto para imprimir */}
-            <Box sx={{ display: 'none' }}>
-              <Ticket
-                ref={printRef}
-                factura={factura}
-                items={itemsAFacturar}
-                aplicarIva={aplicarIva}
-                nombreFactura={nombreFactura}
-              />
-            </Box>
-          </>
-        ) : null}
-      </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, gap: 1, flexWrap: 'wrap' }}>
+          <Button onClick={onClose} variant="outlined">Cerrar</Button>
+          {tab === 0 && (
+            <Button startIcon={<PrintIcon />} variant="outlined" onClick={imprimirTotal} disabled={!factura}>
+              Imprimir comprobante
+            </Button>
+          )}
+          <Button
+            startIcon={<PagarIcon />} variant="contained" color="success"
+            onClick={handlePagar} disabled={pagando || !factura} sx={{ fontWeight: 700 }}
+          >
+            {pagando ? 'Procesando...' : '💳 Marcar como Pagado'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-      <DialogActions sx={{ px: 3, pb: 3, gap: 1, flexWrap: 'wrap' }}>
-        <Button onClick={onClose} variant="outlined">Cerrar</Button>
-        <Button startIcon={<PrintIcon />} variant="outlined"
-          onClick={handlePrint} disabled={!factura || itemsAFacturar.length === 0}>
-          Imprimir ticket
-        </Button>
-        <Button
-          startIcon={<PagarIcon />} variant="contained" color="success"
-          onClick={handlePagar} disabled={pagando || !factura} sx={{ fontWeight: 700 }}>
-          {pagando ? 'Procesando...' : '💳 Marcar como Pagado'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+      {/* Componente oculto para impresión */}
+      <Box sx={{ display: 'none' }}>
+        <Comprobante ref={printRef} datos={printData.current} />
+      </Box>
+    </>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 // Página principal Caja
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 export default function CajaPage() {
   const { pedidos, loading, error, cargar, cambiarEstado } = usePedidos();
   const [facturaId,   setFacturaId]   = useState(null);
@@ -475,7 +592,7 @@ export default function CajaPage() {
   };
 
   const pedidosFiltrados = pedidos.filter(p => {
-    if (!['Listo','Entregado','Pagado'].includes(p.estado)) return false;
+    if (!['Listo', 'Entregado', 'Pagado'].includes(p.estado)) return false;
     if (!busqueda) return true;
     const q = busqueda.toLowerCase();
     return p.id.toString().includes(q) ||
@@ -484,38 +601,33 @@ export default function CajaPage() {
   });
 
   const totalHoy = pedidos
-    .filter(p => p.estado === 'Pagado' &&
-      new Date(p.creadoEn).toDateString() === new Date().toDateString())
+    .filter(p => p.estado === 'Pagado' && new Date(p.creadoEn).toDateString() === new Date().toDateString())
     .reduce((s, p) => s + (p.total || 0), 0);
-  const cantHoy = pedidos.filter(p => p.estado === 'Pagado' &&
-    new Date(p.creadoEn).toDateString() === new Date().toDateString()).length;
+  const cantHoy = pedidos
+    .filter(p => p.estado === 'Pagado' && new Date(p.creadoEn).toDateString() === new Date().toDateString()).length;
 
   return (
     <Box>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
           <Typography variant="h4" fontWeight={700} color="secondary.main">💳 Caja y Facturación</Typography>
-          <Typography variant="body2" color="text.secondary">Pagos totales, parciales o divididos entre personas</Typography>
+          <Typography variant="body2" color="text.secondary">Pagos individuales, divididos e impresión de comprobantes</Typography>
         </Box>
         <Tooltip title="Actualizar"><IconButton onClick={cargar}><RefreshIcon /></IconButton></Tooltip>
       </Box>
 
+      {/* Resumen rápido */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          { label: 'Ventas hoy', value: fmt(totalHoy), color: 'success.main', white: true },
-          { label: 'Pedidos pagados hoy', value: cantHoy, color: undefined },
-          { label: 'Pendientes de cobro', value: pedidos.filter(p => p.estado==='Listo'||p.estado==='Entregado').length, color: 'warning.main' },
-          { label: 'En lista', value: pedidosFiltrados.length, color: undefined },
-        ].map(({ label, value, color, white }) => (
-          <Grid item xs={6} sm={3} key={label}>
-            <Card sx={{ p: 2, textAlign: 'center', borderRadius: 3, ...(white ? { bgcolor: color, color: '#fff' } : {}) }}
-              variant={white ? 'elevation' : 'outlined'}>
-              <Typography variant="caption" sx={{ opacity: white ? 0.9 : 1 }} color={white ? 'inherit' : 'text.secondary'}>
-                {label}
-              </Typography>
-              <Typography variant="h6" fontWeight={700} color={!white && color ? color : 'inherit'}>
-                {value}
-              </Typography>
+          { label: 'Ventas hoy', value: fmt(totalHoy), color: 'success.main', text: '#fff' },
+          { label: 'Pagados hoy', value: cantHoy, color: 'grey.100', text: 'text.primary' },
+          { label: 'Pendientes de cobro', value: pedidos.filter(p => ['Listo','Entregado'].includes(p.estado)).length, color: 'warning.50', text: 'warning.dark' },
+          { label: 'En lista', value: pedidosFiltrados.length, color: 'grey.100', text: 'text.primary' },
+        ].map(k => (
+          <Grid item xs={6} sm={3} key={k.label}>
+            <Card sx={{ p: 2, textAlign: 'center', borderRadius: 3, bgcolor: k.color }} variant="outlined">
+              <Typography variant="caption" sx={{ color: k.text }}>{k.label}</Typography>
+              <Typography variant="h6" fontWeight={800} sx={{ color: k.text }}>{k.value}</Typography>
             </Card>
           </Grid>
         ))}
@@ -523,8 +635,8 @@ export default function CajaPage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <TextField fullWidth sx={{ mb: 2 }}
-        placeholder="Buscar por #pedido, cliente o mesa..."
+      <TextField fullWidth sx={{ mb: 2 }} size="small"
+        placeholder="Buscar por #, cliente o mesa..."
         value={busqueda} onChange={e => setBusqueda(e.target.value)}
         InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
       />
@@ -534,28 +646,26 @@ export default function CajaPage() {
           <Table>
             <TableHead>
               <TableRow sx={{ bgcolor: 'grey.50' }}>
-                <TableCell><strong>#</strong></TableCell>
-                <TableCell><strong>Mesa</strong></TableCell>
-                <TableCell><strong>Cliente</strong></TableCell>
-                <TableCell><strong>Ítems</strong></TableCell>
-                <TableCell><strong>Fecha</strong></TableCell>
-                <TableCell align="right"><strong>Total</strong></TableCell>
-                <TableCell align="center"><strong>Estado</strong></TableCell>
-                <TableCell align="center"><strong>Acciones</strong></TableCell>
+                <TableCell><b>#</b></TableCell>
+                <TableCell><b>Mesa</b></TableCell>
+                <TableCell><b>Cliente</b></TableCell>
+                <TableCell><b>Ítems</b></TableCell>
+                <TableCell><b>Fecha</b></TableCell>
+                <TableCell align="right"><b>Total</b></TableCell>
+                <TableCell align="center"><b>Estado</b></TableCell>
+                <TableCell align="center"><b>Acciones</b></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    {Array.from({ length: 8 }).map((_, j) => <TableCell key={j}><Skeleton /></TableCell>)}
-                  </TableRow>
+                  <TableRow key={i}>{Array.from({ length: 8 }).map((_, j) => <TableCell key={j}><Skeleton /></TableCell>)}</TableRow>
                 ))
               ) : pedidosFiltrados.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
                     <CajaIcon sx={{ fontSize: 48, opacity: 0.3, mb: 1, display: 'block', mx: 'auto' }} />
-                    <Typography>No hay pedidos para mostrar en caja</Typography>
+                    <Typography>No hay pedidos en caja</Typography>
                   </TableCell>
                 </TableRow>
               ) : (

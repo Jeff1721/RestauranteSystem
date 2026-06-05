@@ -42,7 +42,12 @@ builder.Services.AddDbContext<RestauranteDbContext>(options =>
 {
     options.UseNpgsql(connectionString, npgsql =>
     {
-        npgsql.EnableRetryOnFailure(5);
+        npgsql.EnableRetryOnFailure(
+            maxRetryCount: 2,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorCodesToAdd: null
+        );
+        npgsql.CommandTimeout(60); // 60s timeout en vez del default de 30s
     });
 });
    

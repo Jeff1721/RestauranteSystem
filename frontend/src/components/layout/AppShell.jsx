@@ -57,7 +57,7 @@ export default function AppShell() {
         </Avatar>
         <Box>
           <Typography variant="subtitle1" sx={{ color: '#ECF0F1', fontWeight: 700, lineHeight: 1.2 }}>
-            Restaurante Satuali
+            El Sabor
           </Typography>
           <Typography variant="caption" sx={{ color: '#95A5A6' }}>
             Sistema de Pedidos
@@ -138,7 +138,7 @@ export default function AppShell() {
           </IconButton>
 
           <Typography variant="h6" sx={{ fontWeight: 700, flexGrow: 1, display: { xs: 'none', sm: 'block' } }}>
-            Restaurante Satuali
+            Restaurante El Sabor
           </Typography>
 
           <Tooltip title="Nuevo pedido en progreso">
@@ -187,6 +187,8 @@ export default function AppShell() {
           ml: { md: `${DRAWER_WIDTH}px` },
           p: { xs: 2, sm: 3 },
           minHeight: 'calc(100vh - 64px)',
+          overflowY: 'auto',
+          overflowX: 'hidden',
         }}
       >
         <Outlet />

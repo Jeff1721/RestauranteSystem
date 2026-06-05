@@ -86,6 +86,8 @@ namespace RestauranteAPI.Domain.Entities
         public decimal Total { get; set; }
         public decimal PorcentajeImpuesto { get; set; } = 13m;
         public string? AtendidoPor { get; set; }
+        public string? MetodoPago { get; set; }   // efectivo | tarjeta | sinpe | dividido
+        public string? DetallePagoDividido { get; set; } // JSON con detalle por persona
 
         public Cliente? Cliente { get; set; }
         public ICollection<DetallePedido> Detalles { get; set; } = new List<DetallePedido>();

@@ -1,26 +1,10 @@
 // src/services/services.js
 import axios from 'axios';
 
-// ── Cache simple en memoria ────────────────────────────────────
-const cache = {};
-const CACHE_TIME = 5 * 60 * 1000; // 5 minutos
-
-function cachedGet(key, fn) {
-  const now = Date.now();
-  if (cache[key] && (now - cache[key].time) < CACHE_TIME) {
-    return Promise.resolve(cache[key].data);
-  }
-  return fn().then(data => {
-    cache[key] = { data, time: now };
-    return data;
-  });
-}
-
-// ── Instancia axios ───────────────────────────────────────────
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL,
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5168/api',
   headers: { 'Content-Type': 'application/json' },
-  timeout: 90000,
+  timeout: 15000,
 });
 
 api.interceptors.response.use(
@@ -39,18 +23,18 @@ export default api;
 
 // ── clienteService ────────────────────────────────────────────
 export const clienteService = {
-  getAll:  ()           => api.get('/clientes').then(r => r.data),
-  getById: (id)         => api.get(`/clientes/${id}`).then(r => r.data),
-  buscar:  (q)          => api.get('/clientes/buscar', { params: { q } }).then(r => r.data),
-  create:  (data)       => api.post('/clientes', data).then(r => r.data),
-  update:  (id, data)   => api.put(`/clientes/${id}`, data).then(r => r.data),
-  delete:  (id)         => api.delete(`/clientes/${id}`),
+  getAll:    ()           => api.get('/clientes').then(r => r.data),
+  getById:   (id)         => api.get(`/clientes/${id}`).then(r => r.data),
+  buscar:    (q)          => api.get('/clientes/buscar', { params: { q } }).then(r => r.data),
+  create:    (data)       => api.post('/clientes', data).then(r => r.data),
+  update:    (id, data)   => api.put(`/clientes/${id}`, data).then(r => r.data),
+  delete:    (id)         => api.delete(`/clientes/${id}`),
 };
 
 // ── categoriaService ──────────────────────────────────────────
 export const categoriaService = {
-  obtenerTodas: ()         => cachedGet('categorias', () => api.get('/categorias').then(r => r.data)),
-  getAll:       ()         => cachedGet('categorias', () => api.get('/categorias').then(r => r.data)),
+  obtenerTodas: ()         => api.get('/categorias').then(r => r.data),
+  getAll:       ()         => api.get('/categorias').then(r => r.data),
   crear:        (data)     => api.post('/categorias', data).then(r => r.data),
   create:       (data)     => api.post('/categorias', data).then(r => r.data),
   actualizar:   (id, data) => api.put(`/categorias/${id}`, data).then(r => r.data),
@@ -61,11 +45,11 @@ export const categoriaService = {
 
 // ── platilloService ───────────────────────────────────────────
 export const platilloService = {
-  obtenerTodos:       ()         => cachedGet('platillos', () => api.get('/platillos').then(r => r.data)),
-  obtenerDisponibles: ()         => cachedGet('platillos_disponibles', () => api.get('/platillos/disponibles').then(r => r.data)),
-  obtenerDestacados:  ()         => cachedGet('platillos_destacados', () => api.get('/platillos/destacados').then(r => r.data)),
-  getAll:             ()         => cachedGet('platillos', () => api.get('/platillos').then(r => r.data)),
-  getDisponibles:     ()         => cachedGet('platillos_disponibles', () => api.get('/platillos/disponibles').then(r => r.data)),
+  obtenerTodos:       ()         => api.get('/platillos').then(r => r.data),
+  obtenerDisponibles: ()         => api.get('/platillos/disponibles').then(r => r.data),
+  obtenerDestacados:  ()         => api.get('/platillos/destacados').then(r => r.data),
+  getAll:             ()         => api.get('/platillos').then(r => r.data),
+  getDisponibles:     ()         => api.get('/platillos/disponibles').then(r => r.data),
   getById:            (id)       => api.get(`/platillos/${id}`).then(r => r.data),
   crear:              (data)     => api.post('/platillos', data).then(r => r.data),
   create:             (data)     => api.post('/platillos', data).then(r => r.data),
@@ -85,6 +69,6 @@ export const pedidoService = {
   getFactura:     (id)         => api.get(`/pedidos/${id}/factura`).then(r => r.data),
   crear:          (data)       => api.post('/pedidos', data).then(r => r.data),
   create:         (data)       => api.post('/pedidos', data).then(r => r.data),
-  cambiarEstado:  (id, estado) => api.put(`/pedidos/${id}/estado`, { estado }).then(r => r.data),
+  cambiarEstado:  (id, estado, metodoPago = null, detallePagoDividido = null) => api.put(`/pedidos/${id}/estado`, { estado, metodoPago, detallePagoDividido }).then(r => r.data),
   cancelar:       (id)         => api.delete(`/pedidos/${id}`),
 };

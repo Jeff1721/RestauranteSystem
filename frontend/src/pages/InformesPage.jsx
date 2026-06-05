@@ -697,6 +697,70 @@ export default function InformesPage() {
           </Seccion>
 
           {/* Gráfica comparativa */}
+          {/* Métodos de pago */}
+          <Seccion title="Métodos de pago — histórico" icon={<Receipt/>}>
+            {(() => {
+              const metodos = { efectivo:0, tarjeta:0, sinpe:0, dividido:0 };
+              const totales = { efectivo:0, tarjeta:0, sinpe:0, dividido:0 };
+              pagados.forEach(p => {
+                const m = p.metodoPago || 'efectivo';
+                metodos[m] = (metodos[m]||0) + 1;
+                totales[m] = (totales[m]||0) + (p.total||0);
+              });
+              const data = [
+                { name:'💵 Efectivo', pedidos:metodos.efectivo||0, total:totales.efectivo||0, color:'#2E7D32' },
+                { name:'💳 Tarjeta',  pedidos:metodos.tarjeta||0,  total:totales.tarjeta||0,  color:'#1565C0' },
+                { name:'📱 SINPE',    pedidos:metodos.sinpe||0,    total:totales.sinpe||0,    color:'#00695C' },
+                { name:'🔀 Dividido', pedidos:metodos.dividido||0, total:totales.dividido||0, color:'#E65100' },
+              ].filter(d => d.pedidos > 0);
+              if (data.length === 0) return <Typography color="text.secondary" sx={{textAlign:'center',py:3}}>Sin datos de métodos de pago aún</Typography>;
+              return (
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={5}>
+                    <ResponsiveContainer width="100%" height={240}>
+                      <PieChart>
+                        <Pie data={data} cx="50%" cy="50%" outerRadius={90}
+                          dataKey="pedidos" nameKey="name"
+                          label={({name,percent})=>`${(percent*100).toFixed(0)}%`} labelLine={false}>
+                          {data.map((d,i)=><Cell key={i} fill={d.color}/>)}
+                        </Pie>
+                        <Legend iconType="circle" iconSize={10}/>
+                        <RechartTooltip formatter={v=>[`${v} pedidos`]}/>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </Grid>
+                  <Grid item xs={12} md={7}>
+                    <Table size="small">
+                      <TableHead><TableRow sx={{bgcolor:'grey.50'}}>
+                        <TableCell><b>Método</b></TableCell>
+                        <TableCell align="center"><b>Pedidos</b></TableCell>
+                        <TableCell align="right"><b>Total recaudado</b></TableCell>
+                        <TableCell align="right"><b>% pedidos</b></TableCell>
+                        <TableCell><b>Uso</b></TableCell>
+                      </TableRow></TableHead>
+                      <TableBody>
+                        {data.map(d=>(
+                          <TableRow key={d.name} hover>
+                            <TableCell sx={{fontWeight:700}}>{d.name}</TableCell>
+                            <TableCell align="center"><Chip label={d.pedidos} size="small" variant="outlined"/></TableCell>
+                            <TableCell align="right" sx={{fontWeight:700,color:'success.main'}}>{fmtDec(d.total)}</TableCell>
+                            <TableCell align="right">{pct(d.pedidos,pagados.length)}</TableCell>
+                            <TableCell sx={{width:100}}>
+                              <LinearProgress variant="determinate"
+                                value={(d.pedidos/(data[0]?.pedidos||1))*100}
+                                sx={{borderRadius:4,height:8,bgcolor:'grey.200',
+                                  '& .MuiLinearProgress-bar':{bgcolor:d.color}}}/>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Grid>
+                </Grid>
+              );
+            })()}
+          </Seccion>
+
           <Seccion title="Comparativa visual de períodos" icon={<BarChartIcon/>}>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={resumenComparativo.slice(0,3)} margin={{top:5,right:20,bottom:5,left:20}}>

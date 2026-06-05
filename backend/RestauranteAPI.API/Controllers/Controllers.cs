@@ -249,12 +249,13 @@ namespace RestauranteAPI.API.Controllers
             if (platillo is null) return NotFound();
 
             // Eliminar físicamente usando SQL directo para evitar restricción FK
+            // Sintaxis compatible con PostgreSQL (Railway) y SQL Server
             await _context.Database.ExecuteSqlRawAsync(
-                "DELETE FROM PersonalizacionesDetalle WHERE DetallePedidoId IN (SELECT Id FROM DetallesPedido WHERE PlatilloId = {0})", id);
+                "DELETE FROM \"PersonalizacionesDetalle\" WHERE \"DetallePedidoId\" IN (SELECT \"Id\" FROM \"DetallesPedido\" WHERE \"PlatilloId\" = {0})", id);
             await _context.Database.ExecuteSqlRawAsync(
-                "DELETE FROM DetallesPedido WHERE PlatilloId = {0}", id);
+                "DELETE FROM \"DetallesPedido\" WHERE \"PlatilloId\" = {0}", id);
             await _context.Database.ExecuteSqlRawAsync(
-                "DELETE FROM Platillos WHERE Id = {0}", id);
+                "DELETE FROM \"Platillos\" WHERE \"Id\" = {0}", id);
 
             return NoContent();
         }
@@ -398,9 +399,13 @@ namespace RestauranteAPI.API.Controllers
 
             pedido.Estado        = nuevoEstado;
             pedido.ActualizadoEn = DateTime.UtcNow;
+            if (dto.MetodoPago is not null)
+                pedido.MetodoPago = dto.MetodoPago;
+            if (dto.DetallePagoDividido is not null)
+                pedido.DetallePagoDividido = dto.DetallePagoDividido;
             await _pedidoRepo.UpdateAsync(pedido);
 
-            _logger.LogInformation("Pedido #{Id} → Estado: {Estado}", id, nuevoEstado);
+            _logger.LogInformation("Pedido #{Id} → Estado: {Estado} | Pago: {Pago}", id, nuevoEstado, pedido.MetodoPago);
             return Ok(MapToDto(pedido));
         }
 
@@ -428,8 +433,10 @@ namespace RestauranteAPI.API.Controllers
             Impuesto           = p.Impuesto,
             Total              = p.Total,
             PorcentajeImpuesto = p.PorcentajeImpuesto,
-            AtendidoPor        = p.AtendidoPor,
-            CreadoEn           = p.CreadoEn,
+            AtendidoPor            = p.AtendidoPor,
+            MetodoPago             = p.MetodoPago,
+            DetallePagoDividido    = p.DetallePagoDividido,
+            CreadoEn               = p.CreadoEn,
             Detalles           = p.Detalles.Select(d => new DetallePedidoDto
             {
                 Id              = d.Id,

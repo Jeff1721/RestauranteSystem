@@ -115,6 +115,8 @@ namespace RestauranteAPI.Application.DTOs
         public decimal Total { get; set; }
         public decimal PorcentajeImpuesto { get; set; }
         public string? AtendidoPor { get; set; }
+        public string? MetodoPago { get; set; }
+        public string? DetallePagoDividido { get; set; }
         public DateTime CreadoEn { get; set; }
         public List<DetallePedidoDto> Detalles { get; set; } = new();
     }
@@ -141,6 +143,8 @@ namespace RestauranteAPI.Application.DTOs
     public class CambiarEstadoDto
     {
         public string Estado { get; set; } = string.Empty;
+        public string? MetodoPago { get; set; }
+        public string? DetallePagoDividido { get; set; }
     }
 
     // ── Factura ───────────────────────────────────────────────
